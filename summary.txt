@@ -1,0 +1,9 @@
+=== Sales Summary ===
+
+Total Sales: $75500.00
+Top Performer: Eve with $21000.00
+
+Sales by Region:
+  North: $33000.00
+  South: $21500.00
+  East: $21000.00
