@@ -1,0 +1,12 @@
+{
+  "fetched_at": "2026-06-14T15:33:55.575867",
+  "users": 10,
+  "posts": 100,
+  "comments": 500,
+  "invalid_emails": 0,
+  "avg_post_length": 6.13,
+  "most_prolific_user": "Leanne Graham",
+  "fetch_times": {
+    "total": 1.0725431442260742
+  }
+}

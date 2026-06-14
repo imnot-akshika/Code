@@ -52,27 +52,24 @@ class DataFetcher:
                 return None
             
     async def async_fetch_users(self, session) -> list[User]:
-        async with self.semaphore:
             data = await self.fetch(session, f"{self.BASE_URL}/users")
             if data:
                 self.users = [User(id=u["id"], name=u["name"], email=u["email"], city=u["address"]["city"], company=u["company"]["name"]) for u in data]
             return []
         
     async def async_fetch_posts(self, session) -> list[Post]:
-        async with self.semaphore:
             data = await self.fetch(session, f"{self.BASE_URL}/posts")
             if data:
                 self.posts = [Post(id=p["id"], user_id=p["userId"], title=p["title"], word_count=len(p["title"].split())) for p in data]
             return []
         
     async def async_fetch_comments(self, session) -> list[Comment]:
-        async with self.semaphore:
             data = await self.fetch(session, f"{self.BASE_URL}/comments")
             if data:
                 self.comments = [Comment(id=c["id"], post_id=c["postId"], email=c["email"], valid_email=bool(self.EMAIL_RE.match(c["email"]))) for c in data]
             return []
         
-    async def async_run(self) -> dict[str, float]:
+    async def run(self) -> dict[str, float]:
         start_time = time.time()
         async with aiohttp.ClientSession() as session:
             await asyncio.gather(
@@ -105,7 +102,6 @@ class DataFetcher:
         post_counts = Counter(p.user_id for p in self.posts)
         top_user_id = post_counts.most_common(1)[0][0]
         top_user = next(u for u in self.users if u.id == top_user_id)
-        most_prolific_user = [p for p in self.posts if p.user_id == top_user_id][0]
 
         return {
     "fetched_at": datetime.now().isoformat(),
@@ -114,7 +110,7 @@ class DataFetcher:
     "comments": len(self.comments),
     "invalid_emails": sum(1 for c in self.comments if not c.valid_email),
     "avg_post_length": round(sum(p.word_count for p in self.posts) / len(self.posts) if self.posts else 0, 2),
-    "most_prolific_user": most_prolific_user,
+    "most_prolific_user": top_user.name,
     "fetch_times": self._fetch_times
 }
     
