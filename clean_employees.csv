@@ -1,0 +1,10 @@
+emp_id,name,age,salary,dept_id,join_date,email,years_employed,salary_band,dept_name,location
+1,Alice Smith,30.0,95000.0,10.0,2020-03-15,alice@co.com,6,Senior,Engineering,NYC
+2,Bob Jones,32.0,72000.0,20.0,2019-07-22,bob@co.com,6,Mid,Marketing,LA
+3,Charlie Brown,35.0,88000.0,10.0,2021-01-10,charlie@co.com,5,Senior,Engineering,NYC
+4,Diana Prince,28.0,65000.0,30.0,2022-05-18,diana@co.com,4,Junior,HR,Chicago
+5,Unknown,45.0,91000.0,20.0,2018-11-30,eve@co.com,7,Senior,Marketing,LA
+6,Eve Wilson,32.0,78000.0,10.0,2023-02-14,,3,Mid,Engineering,NYC
+7,Frank Miller,32.0,82750.0,40.0,2020-08-05,frank@co.com,5,Mid,Finance,Boston
+8,Grace Lee,29.0,84000.0,30.0,2021-09-12,grace@co.com,4,Mid,HR,Chicago
+9,Henry Ford,41.0,89000.0,,2022-03-28,henry@co.com,4,Senior,,

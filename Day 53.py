@@ -27,8 +27,7 @@ df = pd.DataFrame({
 df['revenue'] = df['units'] * df['price']
 
 def top_products(df: pd.DataFrame, n: int = 3) -> pd.DataFrame:
-    top_products = df.sort_values('revenue', ascending=False).head(n)
-    return top_products
+    return df.groupby('product')['revenue'].sum().sort_values(ascending=False).head(n).reset_index()
 
 def regional_summary(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -75,7 +74,7 @@ def monthly_trend(df: pd.DataFrame) -> pd.DataFrame:
     # group by month, return total revenue per month
     # hint: df['date'].dt.month
     result = df.groupby(df['date'].dt.month)['revenue'].sum().reset_index()
-    result.colums = ['month', 'total_revenue']
+    result.columns = ['month', 'total_revenue']
     return result
 
 def product_region_matrix(df: pd.DataFrame) -> pd.DataFrame:
@@ -87,7 +86,7 @@ def product_region_matrix(df: pd.DataFrame) -> pd.DataFrame:
         df,
         values= 'revenue',
         columns= 'region',
-        index= 'products'
+        index= 'product'
     )
 
     return product_region_matrix
