@@ -60,19 +60,19 @@ class TreeModelComparison:
             ('scaler', StandardScaler()),
             ('tree', DecisionTreeClassifier())
         ])
-        self.dt.fit(self.X_train, self.y_train)
+        self.dtd.fit(self.X_train, self.y_train)
 
         self.rf = Pipeline([
             ('scaler', StandardScaler()),
             ('tree', RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42))
         ])
-        self.dt.fit(self.X_train, self.y_train)
+        self.rf.fit(self.X_train, self.y_train)
 
         self.gb = Pipeline([
             ('scaler', StandardScaler()),
             ('tree', GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, random_state=42))
         ])
-        self.dt.fit(self.X_train, self.y_train)
+        self.gb.fit(self.X_train, self.y_train)
 
         self.models = {
             'DecisionTree': self.dt,
