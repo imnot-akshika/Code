@@ -50,7 +50,7 @@ class ChurnPipeline:
     NUMERIC_FEATURES     = ['age', 'tenure_months', 'monthly_charge',
                             'num_products', 'support_calls']
     CATEGORICAL_FEATURES = ['contract_type', 'payment_method']
-    BOOL_FEATURES        = ['has_partner', 'has_dependents']
+    BOOL_FEATURES        = ['has_partner', 'has_dependents']    
     TARGET               = 'churned'
 
     def __init__(self, df: pd.DataFrame):
@@ -89,7 +89,7 @@ class ChurnPipeline:
 
     def build_pipeline(self, model) -> Pipeline:
         self.pipeline = Pipeline([
-            ('processor', self.build_preprocessor),
+            ('processor', self.build_preprocessor()),
             ('model', model)
         ])
         return self.pipeline
@@ -120,8 +120,7 @@ class ChurnPipeline:
                 'roc_auc': roc_auc_score(y_test, y_proba),
                 'cv_roc_auc': np.mean(cv_results['test_score'])
             })
-
-        self.results[name] = rows[-1]
+            self.results[name] = rows[-1]
         return pd.DataFrame(rows).set_index('name')
 
 
@@ -132,16 +131,16 @@ class ChurnPipeline:
         # return best params and best score
         pipe = self.build_pipeline(GradientBoostingClassifier(random_state=42))
         param_grid = {
-            'n_estimators': [50,100],
-            'max_depth': [3, 5],
-            'learning_rate': [0.05, 0.1]
+            'model__n_estimators': [50,100],
+            'model__max_depth': [3, 5],
+            'model__learning_rate': [0.05, 0.1]
         }
 
         grid_search = GridSearchCV(
             pipe,
             param_grid,
             cv=5,
-            scoring='r2',
+            scoring='roc_auc',
             n_jobs=-1,
             verbose=1
         )
@@ -159,12 +158,10 @@ class ChurnPipeline:
         # return accuracy, f1, roc_auc, classification_report, confusion_matrix
         if self.clean_df is None:
             self.clean()
-        
         if self.best_model is None:
-            self.tune_best_model(X_test, y_test)
-            y_pred =self.best_model.predict(X_test)
-            y_prob = self.best_model.predict_proba(X_test)[:, 1]
-
+            raise ValueError("Run tune_best_model() first.")
+        y_pred =self.best_model.predict(X_test)
+        y_prob = self.best_model.predict_proba(X_test)[:, 1]
         return {
             'accuracy': accuracy_score(y_test, y_pred),
             'f1': f1_score(y_test, y_pred),
@@ -182,7 +179,62 @@ class ChurnPipeline:
         # [1,0] confusion matrix of best model
         # [1,1] feature importance (if tree model)
         # [1,2] churn rate by contract_type (from clean_df)
-        ...
+        plt.style.use('dark_background')
+        fig, axes = plt.subplots(2, 3, figsize = (10, 6))
+        fig.suptitle('Churn Prediction Dashboard', fontsize=14, fontweight='bold')
+        if self.best_model is None:
+            self.tune_best_model(X_test, y_test)
+
+        results_df = pd.DataFrame(self.results).T
+        results_df['roc_auc'].astype(float).plot(
+        kind='bar', ax=axes[0, 0], color='#0313A6')
+        axes[0, 0].set_title("Model Comparison (ROC-AUC)")
+        axes[0, 0].set_ylabel("ROC-AUC")
+        axes[0, 0].tick_params(axis='x', rotation=30)
+
+        y_pred =self.best_model.predict(X_test)
+        y_prob = self.best_model.predict_proba(X_test)[:, 1]
+
+        fpr, tpr, _ = roc_curve(y_test, y_prob)
+        axes[0, 1].plot(fpr, tpr, color='#F715AB', lw=2, label=f'AUC={roc_auc_score(y_test, y_prob):.3f}')
+        axes[0, 1].set_title("ROC Curve")
+        axes[0, 1].set_xlabel("False Positive Rate")
+        axes[0, 1].set_ylabel("True Positive Rate")
+        axes[0, 1].legend(fontsize=7)
+
+        precision, recall, _ = precision_recall_curve(y_test, y_prob)
+        ap = average_precision_score(y_test, y_prob)
+        axes[0, 2].plot(recall, precision, color='#34EDF3', lw=2, label=f'AP={ap:.3f}')
+        axes[0, 2].set_title("Precision-Recall Curves")
+        axes[0, 2].set_xlabel("Recall")
+        axes[0, 2].set_ylabel("Precision")
+        axes[0, 2].legend(fontsize=7)
+
+        cm = confusion_matrix(y_test, y_pred)
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=axes[1, 0])
+        axes[1, 0].set_title("Confusion Matrix")
+        axes[1, 0].set_xlabel("Predicted")
+        axes[1, 0].set_ylabel("Actual")
+        axes[1, 0].legend(fontsize=7)
+
+        if hasattr(self.best_model.named_steps['model'], 'feature_importances_'):
+            importances = self.best_model.named_steps['model'].feature_importances_
+            feature_names = self.best_model.named_steps['processor'].get_feature_names_out()
+            imp = pd.Series(importances, index=feature_names).sort_values().tail(10)
+            imp.plot(kind='barh', ax=axes[1, 1], color='#F7A315')
+            axes[1, 1].set_title("Feature Importances (Top 10)")
+
+        churn_rate_by_contract = self.clean_df.groupby('contract_type')[self.TARGET].mean().sort_values(ascending=False)
+        churn_rate_by_contract.plot(kind='barh', ax=axes[1, 2], color='#15F7A3')
+        axes[1, 2].set_title("Churn Rate by Contract Type")
+        axes[1, 2].set_xlabel("Churn Rate")
+        axes[1, 2].set_ylabel("Contract Type")
+        axes[1, 2].legend(fontsize=7)
+
+        plt.tight_layout()
+        plt.savefig(filename, dpi=150, bbox_inches='tight')
+        plt.show()
+        print(f"Saved to {filename}")
 
     def save(self, filepath: str) -> None:
         joblib.dump(self.best_model, filepath)
@@ -191,4 +243,75 @@ class ChurnPipeline:
         # takes a dict of customer features
         # returns churn_probability and risk_level:
         # 'High' if prob > 0.6, 'Medium' if > 0.3, 'Low' otherwise
-        ...
+        row = pd.DataFrame([customer])
+        churn_probability = self.best_model.predict_proba(row)[:, 1][0]
+        if churn_probability > 0.6:
+            risk_level = 'High'
+        elif churn_probability > 0.3:
+            risk_level = 'Medium'
+        else:
+            risk_level = 'Low'
+
+        return {'churn_probability': churn_probability, 'risk_level': risk_level}
+
+#Example Usage
+pipeline = ChurnPipeline(df)
+
+# clean
+clean = pipeline.clean()
+print(f"Clean shape: {clean.shape}")
+print(f"Churn rate: {clean['churned'].mean():.2%}")
+
+# prepare features
+feature_cols = (ChurnPipeline.NUMERIC_FEATURES +
+                ChurnPipeline.CATEGORICAL_FEATURES +
+                ChurnPipeline.BOOL_FEATURES)
+
+X = clean[feature_cols]
+y = clean[ChurnPipeline.TARGET]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# train and compare
+print("\n=== Model Comparison ===")
+results = pipeline.train_evaluate(X_train, y_train, X_test, y_test)
+print(results.to_string())
+
+# tune best model
+print("\n=== Tuning ===")
+tuning = pipeline.tune_best_model(X_train, y_train)
+print(f"Best params: {tuning['params']}")
+print(f"Best CV ROC-AUC: {tuning['cv_score']:.4f}")
+
+# final evaluation
+print("\n=== Final Evaluation ===")
+final = pipeline.final_evaluation(X_test, y_test)
+print(f"ROC-AUC: {final['roc_auc']:.4f}")
+print(f"F1: {final['f1']:.4f}")
+print(final['report'])    # matches key name in the dict
+
+# dashboard
+pipeline.plot_dashboard(X_test, y_test)
+
+# save
+pipeline.save('churn_model.pkl')
+print("\nModel saved.")
+
+# predict a new customer
+new_customer = {
+    'age': 28,
+    'tenure_months': 3,
+    'monthly_charge': 95.0,
+    'num_products': 1,
+    'support_calls': 7,
+    'contract_type': 'monthly',
+    'payment_method': 'cash',
+    'has_partner': False,
+    'has_dependents': False
+}
+prediction = pipeline.predict(new_customer)
+print(f"\nNew customer prediction:")
+print(f"Churn probability: {prediction['churn_probability']:.2%}")
+print(f"Risk level: {prediction['risk_level']}")
