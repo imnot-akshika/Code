@@ -1,5 +1,3 @@
-from tabnanny import verbose
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -80,7 +78,8 @@ class NeuralNetwork:
 
     def train(self, X, y, epochs: int = 500,
               learning_rate: float = 0.01,
-              batch_size: int = 32) -> list[float]:
+              batch_size: int = 32,
+              verbose: bool = True) -> list[float]:
         # mini-batch gradient descent
         # return list of losses per epoch
         losses = []
@@ -90,9 +89,6 @@ class NeuralNetwork:
             indices = np.random.permutation(m)
             X_shuffled = X[indices]
             y_shuffled = y[indices]
-
-            if verbose and epoch % 100 == 0:
-                print(f"Epoch {epoch:.4d} | Loss: {losses[-1]:.4f}")
 
             for start in range(0, m, batch_size):
                 X_batch = X_shuffled[start:start + batch_size]
@@ -105,6 +101,9 @@ class NeuralNetwork:
             loss = self._compute_loss(y, y_pred)
             losses.append(loss)
 
+            if verbose and epoch % 100 == 0:
+                print(f"Epoch {epoch:4d} | Loss: {losses[-1]:.4f}")
+
         return losses
     
 
@@ -113,7 +112,7 @@ class NeuralNetwork:
         return self.activations[-1]
 
     def predict(self, X, threshold: float = 0.5) -> np.ndarray:
-        proba = self.predict_proba(X)
+        proba = self.predict_proba(X).flatten()
         return (proba >= threshold).astype(int)
 
     def plot_loss(self, losses: list[float],
