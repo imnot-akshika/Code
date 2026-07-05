@@ -215,11 +215,10 @@ class ChurnPipeline:
         axes[1, 0].set_title("Confusion Matrix")
         axes[1, 0].set_xlabel("Predicted")
         axes[1, 0].set_ylabel("Actual")
-        axes[1, 0].legend(fontsize=7)
 
         if hasattr(self.best_model.named_steps['model'], 'feature_importances_'):
             importances = self.best_model.named_steps['model'].feature_importances_
-            feature_names = self.best_model.named_steps['processor'].get_feature_names_out()
+            feature_names = self.best_model.named_steps['preprocessor'].get_feature_names_out()
             imp = pd.Series(importances, index=feature_names).sort_values().tail(10)
             imp.plot(kind='barh', ax=axes[1, 1], color='#F7A315')
             axes[1, 1].set_title("Feature Importances (Top 10)")
@@ -229,7 +228,6 @@ class ChurnPipeline:
         axes[1, 2].set_title("Churn Rate by Contract Type")
         axes[1, 2].set_xlabel("Churn Rate")
         axes[1, 2].set_ylabel("Contract Type")
-        axes[1, 2].legend(fontsize=7)
 
         plt.tight_layout()
         plt.savefig(filename, dpi=150, bbox_inches='tight')
@@ -290,7 +288,7 @@ print("\n=== Final Evaluation ===")
 final = pipeline.final_evaluation(X_test, y_test)
 print(f"ROC-AUC: {final['roc_auc']:.4f}")
 print(f"F1: {final['f1']:.4f}")
-print(final['report'])    # matches key name in the dict
+print(final['classification_report'])
 
 # dashboard
 pipeline.plot_dashboard(X_test, y_test)
