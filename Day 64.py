@@ -49,20 +49,20 @@ class CreditNet(nn.Module):
     def __init__(self, input_size: int, hidden_sizes: list[int],
                  dropout: float = 0.2):
         super().__init__()
-        # build network dynamically from hidden_sizes list
-        # input → hidden[0] → hidden[1] → ... → 1
-        # ReLU + Dropout after each hidden layer
-        # Sigmoid on output
-        self.netwrok = nn.Sequential(
-            nn.Linear(input_size, 16),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(16, 8),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(8, 1),
-            nn.Sigmoid()
-        )
+
+        layers = []
+        prev_size = input_size
+
+        for hidden_size in hidden_sizes:
+            layers.append(nn.Linear(prev_size, hidden_size))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout))
+            prev_size = hidden_size
+        
+        layers.append(nn.Linear(prev_size, 1))
+        layers.append(nn.Sigmoid())
+
+        self.network = nn.Sequential(*layers)
 
     def forward(self, x):
         return self.network(x)
@@ -77,42 +77,91 @@ class PyTorchTrainer:
 
     def train_epoch(self, loader: DataLoader) -> float:
         self.model.train()
-        for epoch in range(100):
-            for X_batch, y_batch in loader:
-                self.optimizer.zero_grad()
-                y_pred = self.model(X_batch)
-                loss = self.criterion(y_pred, y_batch.unsqueeze(1))
-                loss.backward()
-                self.optimizer.step()
-                epoch_loss += loss.item()
-        
-        if epoch % 10 == 0:
-            print(f"Epoch {epoch:3d} | Loss: {epoch_loss/len(loader):.4f}")
+        total_loss = 0
+
+        for X_batch, y_batch in loader:
+            self.optimizer.zero_grad()
+            y_pred = self.model(X_batch)
+            loss = self.criterion(y_pred, y_batch.unsqueeze(1))
+            loss.backward()
+            self.optimizer.step()
+
+            total_loss += loss.item()
+        return total_loss / len(loader)
 
     def val_epoch(self, loader: DataLoader) -> float:
         self.model.eval()
+        total_loss = 0
         with torch.no_grad():
-            y_prob = self.model(X_test_t).squeeze().numpy()
-            y_pred = (y_prob >= 0.5).astype(int)
+            for X_batch, y_batch in loader:
+                y_pred = self.model(X_batch)
+                loss = self.criterion(y_pred, y_batch.unsqueeze(1))
+                total_loss += loss.item()
+
+            return total_loss / len(loader)
 
     def fit(self, X_train, y_train, X_val, y_val,
             epochs: int = 100, batch_size: int = 32) -> None:
-        # create DataLoaders
-        # train for epochs, record train and val loss each epoch
-        # print every 10 epochs
-        ...
+        train_dataset = TensorDataset(X_train, y_train)
+        val_dataset = TensorDataset(X_val, y_val)
+
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False)
+
+        for epoch in range(epochs):
+            train_loss = self.train_epoch(train_loader)
+            val_loss   = self.val_epoch(val_loader)
+
+            self.train_losses.append(train_loss)
+            self.val_losses.append(val_loss)
+
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch:3d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
     def predict_proba(self, X: torch.Tensor) -> np.ndarray:
-        # return probabilities as numpy array
-        ...
+        self.model.eval()
+        with torch.no_grad():
+            proba = self.model(X).squeeze().numpy()
+        return proba
 
     def predict(self, X: torch.Tensor,
                 threshold: float = 0.5) -> np.ndarray:
-        ...
+        proba = self.predict_proba(X)
+        return (proba >= threshold).astype(int)
 
     def plot_losses(self, filename: str = 'torch_losses.png') -> None:
-        # plot train and val loss on same axes
-        ...
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(self.train_losses, color='#0313A6', lw=2, label='Train Loss')
+        ax.plot(self.val_losses, color='#F715AB', lw=2, label='Val Loss', linestyle='--')
+        ax.set_title("Training & Validation Loss")
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("BCE Loss")
+        ax.legend()
+        ax.grid(alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(filename, dpi=150, bbox_inches='tight')
+        plt.show()
+        print(f"Saved to {filename}")
+
 
     def save(self, filepath: str) -> None:
         torch.save(self.model.state_dict(), filepath)
+        print(f"Model saved to {filepath}")
+
+#Example Usage
+model = CreditNet(input_size=6, hidden_sizes=[32, 16, 8], dropout=0.2)
+trainer = PyTorchTrainer(model, lr=0.001)
+
+trainer.fit(X_train_t, y_train_t, X_test_t, y_test_t,
+            epochs=100, batch_size=32)
+
+y_proba = trainer.predict_proba(X_test_t)
+y_pred  = trainer.predict(X_test_t)
+
+print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+print(f"ROC-AUC:  {roc_auc_score(y_test, y_proba):.4f}")
+print(classification_report(y_test, y_pred))
+
+trainer.plot_losses()
+trainer.save('credit_net.pth')
+print("Model saved.")
