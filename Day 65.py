@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import Counter
 
-class TextAnalysisTookit:
+class TextAnalysisToolkit:
 
     def __init__(self):
         # load three pipelines — this will download models on first run
@@ -34,13 +34,13 @@ class TextAnalysisTookit:
         rows = []
         results = self.zero_shot(texts, candidate_labels=topics)
         for text, result in zip(texts, results):
-            topic_scores = dict(zip(result['label'], result['scores']))
+            topic_scores = dict(zip(result['labels'], result['scores']))
             row = {
-                'test': text,
-                'top_topic': result['label'][0],
+                'text': text,
+                'top_topic': result['labels'][0],
                 'confidence': round(result['scores'][0], 4)
             }
-            for topic, score in topic_scores.item():
+            for topic, score in topic_scores.items():
                 row[topic] = round(score, 4)
             rows.append(row)
         return pd.DataFrame(rows)
@@ -56,7 +56,7 @@ class TextAnalysisTookit:
                     'group': entity['entity_group']
                 })
         return pd.DataFrame(rows) if rows else pd.DataFrame(
-            columns=['text', 'entity', type, 'score']
+            columns=['text', 'entity', 'type', 'score']
         )
 
 
